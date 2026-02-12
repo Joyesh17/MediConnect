@@ -1,27 +1,19 @@
 module.exports = (sequelize, DataTypes) => {
   const User = sequelize.define('User', {
-    username: {
-      type: DataTypes.STRING,
-      allowNull: false,
-      unique: true
+    name: { type: DataTypes.STRING, allowNull: false },
+    email: { type: DataTypes.STRING, allowNull: false, unique: true },
+    password: { type: DataTypes.STRING, allowNull: false },
+    role: { 
+      type: DataTypes.ENUM('admin', 'doctor', 'nurse', 'patient'), 
+      allowNull: false 
     },
-    email: {
-      type: DataTypes.STRING,
-      allowNull: false,
-      unique: true,
-      validate: {
-        isEmail: true
-      }
+    status: { 
+      type: DataTypes.ENUM('pending', 'active', 'disabled'), 
+      defaultValue: 'pending' 
     },
-    password: {
-      type: DataTypes.STRING,
-      allowNull: false
-    },
-    role: {
-      type: DataTypes.ENUM('admin', 'doctor', 'patient', 'nurse'),
-      defaultValue: 'patient'
-    }
+    phone: { type: DataTypes.STRING },
+    gender: { type: DataTypes.STRING },
+    dob: { type: DataTypes.DATEONLY }
   });
-
   return User;
 };
