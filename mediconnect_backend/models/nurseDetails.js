@@ -2,10 +2,16 @@ module.exports = (sequelize, DataTypes) => {
   const NurseDetails = sequelize.define('NurseDetails', {
     userId: {
       type: DataTypes.INTEGER,
-      primaryKey: true
+      primaryKey: true,
+      references: {
+        model: 'users', // References the tableName in User.js
+        key: 'id'
+      },
+      onDelete: 'CASCADE'
     },
     department: {
-      type: DataTypes.STRING
+      type: DataTypes.STRING,
+      allowNull: false // Making this required for proper hospital organization
     },
     salary: {
       type: DataTypes.FLOAT,
@@ -14,7 +20,11 @@ module.exports = (sequelize, DataTypes) => {
     isAvailable: {
       type: DataTypes.BOOLEAN,
       defaultValue: true
-    } // "Busy/Available" toggle
+    }
+  }, {
+    tableName: 'nurse_details',
+    timestamps: true
   });
+
   return NurseDetails;
 };

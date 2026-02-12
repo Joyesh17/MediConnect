@@ -1,17 +1,20 @@
 const db = require('../models');
+// Destructure the models we need
 const { User, DoctorDetails, Appointment, LabRequest, LabTest, Prescription } = db;
 
 // 1. Search Doctors by Specialization
 exports.searchDoctors = async (req, res) => {
   try {
     const { specialization } = req.query;
+    // Default filter: only active doctors
     let whereClause = { role: 'doctor', status: 'active' };
 
     const doctors = await User.findAll({
       where: whereClause,
-      attributes: ['id', 'name', 'email'],
+      attributes: ['id', 'name', 'email'], // Select specific fields only
       include: [{
         model: DoctorDetails,
+        // If specialization is provided in query, filter by it; otherwise get all
         where: specialization ? { specialization } : {},
         attributes: ['specialization', 'consultationFee', 'bio']
       }]
@@ -19,6 +22,7 @@ exports.searchDoctors = async (req, res) => {
 
     res.status(200).json(doctors);
   } catch (error) {
+    console.error("Search Error:", error);
     res.status(500).json({ message: "Error searching doctors", error: error.message });
   }
 };
@@ -27,7 +31,7 @@ exports.searchDoctors = async (req, res) => {
 exports.bookAppointment = async (req, res) => {
   try {
     const { doctorId, date, time, reason } = req.body;
-    const patientId = req.user.id; // From Middleware
+    const patientId = req.user.id; // Comes from authMiddleware
 
     const appointment = await Appointment.create({
       patientId,
@@ -40,6 +44,7 @@ exports.bookAppointment = async (req, res) => {
 
     res.status(201).json({ message: "Appointment requested successfully", appointment });
   } catch (error) {
+    console.error("Booking Error:", error);
     res.status(500).json({ message: "Error booking appointment", error: error.message });
   }
 };
@@ -62,10 +67,12 @@ exports.getLabSuggestions = async (req, res) => {
     });
     res.status(200).json(suggestions);
   } catch (error) {
+    console.error("Lab Suggestions Error:", error);
     res.status(500).json({ message: "Error fetching lab suggestions", error: error.message });
   }
 };
 
+// 4. Respond to Lab Request (Accept/Reject)
 exports.respondToLabTest = async (req, res) => {
   try {
     const { requestId } = req.params;
@@ -79,11 +86,12 @@ exports.respondToLabTest = async (req, res) => {
 
     res.status(200).json({ message: `Lab test ${action}` });
   } catch (error) {
+    console.error("Lab Response Error:", error);
     res.status(500).json({ message: "Error updating lab request", error: error.message });
   }
 };
 
-// 4. View Prescription History
+// 5. View Prescription History
 exports.getPrescriptions = async (req, res) => {
   try {
     const patientId = req.user.id;
@@ -96,6 +104,7 @@ exports.getPrescriptions = async (req, res) => {
     });
     res.status(200).json(records);
   } catch (error) {
+    console.error("Prescription Error:", error);
     res.status(500).json({ message: "Error fetching records", error: error.message });
   }
 };

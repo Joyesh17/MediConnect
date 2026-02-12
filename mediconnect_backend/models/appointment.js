@@ -1,5 +1,10 @@
 module.exports = (sequelize, DataTypes) => {
   const Appointment = sequelize.define('Appointment', {
+    id: {
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
+      primaryKey: true
+    },
     date: {
       type: DataTypes.DATEONLY,
       allowNull: false
@@ -18,8 +23,28 @@ module.exports = (sequelize, DataTypes) => {
     paymentStatus: {
       type: DataTypes.ENUM('unpaid', 'paid'),
       defaultValue: 'unpaid'
+    },
+    // Explicit Foreign Keys for clarity and database integrity
+    patientId: {
+      type: DataTypes.INTEGER,
+      references: { model: 'users', key: 'id' },
+      onDelete: 'CASCADE'
+    },
+    doctorId: {
+      type: DataTypes.INTEGER,
+      references: { model: 'users', key: 'id' },
+      onDelete: 'CASCADE'
+    },
+    nurseId: {
+      type: DataTypes.INTEGER,
+      references: { model: 'users', key: 'id' },
+      onDelete: 'SET NULL', // If a nurse leaves, we keep the appointment record
+      allowNull: true
     }
-    // Note: patientId, doctorId, nurseId are added automatically by index.js
+  }, {
+    tableName: 'appointments',
+    timestamps: true
   });
+
   return Appointment;
 };
