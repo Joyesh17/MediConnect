@@ -1,18 +1,44 @@
 import axios from 'axios';
 
-// This centralizes your backend URL so you don't have to type it everywhere
+// Centralizes backend URL
 const API = axios.create({
     baseURL: 'http://localhost:5000/api',
 });
 
-// Interceptor: This "intercepts" every outgoing request to the backend
-// and attaches the JWT token from your browser's storage (if it exists).
-API.interceptors.request.use((req) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-        req.headers.Authorization = `Bearer ${token}`;
+// REQUEST INTERCEPTOR: Attaches token to outgoing requests
+API.interceptors.request.use(
+    (req) => {
+        const token = localStorage.getItem('token');
+        
+        // Strict check to prevent sending literal 'undefined' or 'null' strings
+        if (token && token !== 'undefined' && token !== 'null') {
+            req.headers.Authorization = `Bearer ${token}`;
+        }
+        
+        return req;
+    },
+    (error) => {
+        return Promise.reject(error);
     }
-    return req;
-});
+);
+
+// RESPONSE INTERCEPTOR: Handles global errors (like expired tokens)
+API.interceptors.response.use(
+    (response) => {
+        return response;
+    },
+    (error) => {
+        // If the backend rejects the token (401 Unauthorized), log the user out automatically
+        if (error.response && error.response.status === 401) {
+            console.warn("Token expired or invalid. Logging out...");
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            
+            // Redirect to login page (adjust the path if your login route is different)
+            window.location.href = '/login'; 
+        }
+        return Promise.reject(error);
+    }
+);
 
 export default API;

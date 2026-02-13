@@ -11,7 +11,8 @@ router.use(authorizeRole('patient'));
 router.get('/doctors', patientController.searchDoctors);
 
 // 2. Appointments
-router.post('/appointments', patientController.bookAppointment);
+router.post('/appointments', patientController.bookAppointment); // Book a new one
+router.get('/appointments', patientController.getMyAppointments); // OPTIMAL: View history/status
 
 // 3. Lab Tests
 router.get('/lab-suggestions', patientController.getLabSuggestions);

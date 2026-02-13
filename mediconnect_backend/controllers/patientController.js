@@ -1,22 +1,24 @@
 const db = require('../models');
-// Destructure the models we need
 const { User, DoctorDetails, Appointment, LabRequest, LabTest, Prescription } = db;
+const { Op } = require('sequelize');
 
-// 1. Search Doctors by Specialization
+// 1. Search Doctors by Specialization or Name
 exports.searchDoctors = async (req, res) => {
   try {
-    const { specialization } = req.query;
-    // Default filter: only active doctors
-    let whereClause = { role: 'doctor', status: 'active' };
+    const { specialization, name } = req.query;
+    
+    let userWhere = { role: 'doctor', status: 'active' };
+    if (name) {
+      userWhere.name = { [Op.like]: `%${name}%` }; // Partial name search
+    }
 
     const doctors = await User.findAll({
-      where: whereClause,
-      attributes: ['id', 'name', 'email'], // Select specific fields only
+      where: userWhere,
+      attributes: ['id', 'name', 'email', 'phone'],
       include: [{
         model: DoctorDetails,
-        // If specialization is provided in query, filter by it; otherwise get all
         where: specialization ? { specialization } : {},
-        attributes: ['specialization', 'consultationFee', 'bio']
+        attributes: ['specialization', 'consultationFee', 'bio', 'isAvailable']
       }]
     });
 
@@ -31,7 +33,7 @@ exports.searchDoctors = async (req, res) => {
 exports.bookAppointment = async (req, res) => {
   try {
     const { doctorId, date, time, reason } = req.body;
-    const patientId = req.user.id; // Comes from authMiddleware
+    const patientId = req.user.id;
 
     const appointment = await Appointment.create({
       patientId,
@@ -39,7 +41,7 @@ exports.bookAppointment = async (req, res) => {
       date,
       time,
       reason,
-      status: 'pending' // Requirement: Initially pending
+      status: 'pending' 
     });
 
     res.status(201).json({ message: "Appointment requested successfully", appointment });
@@ -49,7 +51,25 @@ exports.bookAppointment = async (req, res) => {
   }
 };
 
-// 3. View Lab Test Suggestions & Accept/Reject
+// 3. View All My Appointments (History & Upcoming)
+exports.getMyAppointments = async (req, res) => {
+  try {
+    const patientId = req.user.id;
+    const appointments = await Appointment.findAll({
+      where: { patientId },
+      include: [
+        { model: User, as: 'doctor', attributes: ['name'] },
+        { model: User, as: 'nurse', attributes: ['name'] }
+      ],
+      order: [['date', 'DESC'], ['time', 'DESC']]
+    });
+    res.status(200).json(appointments);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching appointments", error: error.message });
+  }
+};
+
+// 4. View Lab Test Suggestions & Accept/Reject
 exports.getLabSuggestions = async (req, res) => {
   try {
     const patientId = req.user.id;
@@ -67,12 +87,11 @@ exports.getLabSuggestions = async (req, res) => {
     });
     res.status(200).json(suggestions);
   } catch (error) {
-    console.error("Lab Suggestions Error:", error);
     res.status(500).json({ message: "Error fetching lab suggestions", error: error.message });
   }
 };
 
-// 4. Respond to Lab Request (Accept/Reject)
+// 5. Respond to Lab Request (Accept/Reject)
 exports.respondToLabTest = async (req, res) => {
   try {
     const { requestId } = req.params;
@@ -86,12 +105,11 @@ exports.respondToLabTest = async (req, res) => {
 
     res.status(200).json({ message: `Lab test ${action}` });
   } catch (error) {
-    console.error("Lab Response Error:", error);
     res.status(500).json({ message: "Error updating lab request", error: error.message });
   }
 };
 
-// 5. View Prescription History
+// 6. View Prescription History
 exports.getPrescriptions = async (req, res) => {
   try {
     const patientId = req.user.id;
@@ -104,7 +122,6 @@ exports.getPrescriptions = async (req, res) => {
     });
     res.status(200).json(records);
   } catch (error) {
-    console.error("Prescription Error:", error);
     res.status(500).json({ message: "Error fetching records", error: error.message });
   }
 };

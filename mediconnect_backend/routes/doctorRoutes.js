@@ -12,6 +12,9 @@ router.get('/pending-appointments', doctorController.getPendingAppointments);
 router.get('/available-nurses', doctorController.getAvailableNurses);
 router.put('/accept-appointment/:appointmentId', doctorController.acceptAppointment);
 
+// OPTIMAL: Added route so the doctor can view their confirmed schedule
+router.get('/schedule', doctorController.getDoctorSchedule);
+
 // 2. Consultation & Prescription
 router.post('/complete-consultation', doctorController.completeConsultation);
 

@@ -5,12 +5,13 @@ const db = require('../models');
 const { User, DoctorDetails, NurseDetails, sequelize } = db;
 
 exports.register = async (req, res) => {
-    // Start a Transaction
+    // 1. Start a Transaction to ensure Atomicity
     const t = await sequelize.transaction();
 
     try {
         const { name, email, password, role, specialization, department, phone, gender, dob } = req.body;
 
+        // Security check for Admin
         if (role === 'admin') {
             await t.rollback();
             return res.status(403).json({ 
@@ -25,22 +26,14 @@ exports.register = async (req, res) => {
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
-
         let userStatus = (role === 'patient') ? 'active' : 'pending';
 
-        // 1. Create User within the transaction
+        // Create the core User record
         const newUser = await User.create({
-            name,
-            email,
-            password: hashedPassword,
-            role,
-            status: userStatus,
-            phone,
-            gender,
-            dob
+            name, email, password: hashedPassword, role, status: userStatus, phone, gender, dob
         }, { transaction: t });
 
-        // 2. Create Profile based on role within the same transaction
+        // Create associated role-specific profile
         if (role === 'doctor') {
             await DoctorDetails.create({ 
                 userId: newUser.id, 
@@ -53,13 +46,14 @@ exports.register = async (req, res) => {
             }, { transaction: t });
         }
 
-        // If everything is fine, commit the changes to DB
+        // Commit all changes to the database
         await t.commit();
         res.status(201).json({ message: "User registered successfully!" });
 
     } catch (error) {
-        // If any error occurs, undo all database changes made during this request
-        if (t) await t.rollback();
+        // Only rollback if the transaction hasn't been finished yet
+        if (t && !t.finished) await t.rollback();
+        
         console.error("Registration Error:", error);
         res.status(500).json({ message: "Server Error", error: error.message });
     }
@@ -75,6 +69,7 @@ exports.login = async (req, res) => {
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
 
+        // Status checks
         if (user.status === 'pending') {
             return res.status(403).json({ message: "Account is pending approval. Please contact Admin." });
         }
@@ -82,6 +77,7 @@ exports.login = async (req, res) => {
             return res.status(403).json({ message: "Account is disabled." });
         }
 
+        // Token Generation
         const token = jwt.sign(
             { id: user.id, role: user.role }, 
             process.env.JWT_SECRET || 'SECRET_KEY', 

@@ -4,7 +4,7 @@ const userController = require('../controllers/userController');
 const { verifyToken } = require('../middleware/authMiddleware');
 
 // Route: /api/users/doctors
-// Middleware: verifyToken (Checks if user is logged in), but NO verifyRole('admin')
+// Middleware: verifyToken ensures security, but anyone logged in can view doctors
 router.get('/doctors', verifyToken, userController.getActiveDoctors);
 
 module.exports = router;

@@ -1,28 +1,21 @@
 const db = require('../models');
-const User = db.User;
-const LabTest = db.LabTest;
+const { User, LabTest } = db;
 
-// 1. Get All Users (with filters for Role and Status)
-exports.getAllUsers = async (req, res) => {
+// 1. Get All Pending Staff (Doctors/Nurses awaiting approval)
+exports.getPendingApprovals = async (req, res) => {
   try {
-    const { role, status } = req.query;
-    let whereClause = {};
-
-    if (role) whereClause.role = role;
-    if (status) whereClause.status = status;
-
-    const users = await User.findAll({
-      where: whereClause,
-      attributes: { exclude: ['password'] } // Security: Don't send passwords to frontend
+    const staff = await User.findAll({
+      where: { status: 'pending' },
+      attributes: ['id', 'name', 'email', 'role', 'createdAt']
     });
-
-    res.status(200).json(users);
+    res.status(200).json(staff);
   } catch (error) {
-    res.status(500).json({ message: "Error fetching users", error: error.message });
+    console.error("Admin Pending Approvals Error:", error);
+    res.status(500).json({ message: "Error fetching pending approvals", error: error.message });
   }
 };
 
-// 2. Approve or Reject a Doctor/Nurse
+// 2. Approve or Reject Staff Account
 exports.updateUserStatus = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -30,11 +23,6 @@ exports.updateUserStatus = async (req, res) => {
 
     const user = await User.findByPk(userId);
     if (!user) return res.status(404).json({ message: "User not found" });
-
-    // Requirement: Admin cannot deactivate themselves
-    if (user.id === req.user.id && status === 'disabled') {
-      return res.status(400).json({ message: "You cannot deactivate your own admin account." });
-    }
 
     user.status = status;
     await user.save();
@@ -45,39 +33,47 @@ exports.updateUserStatus = async (req, res) => {
   }
 };
 
-// 3. Add a New Lab Test Service
+// 3. Manage Lab Test Catalog (Add New Test)
 exports.addLabTest = async (req, res) => {
   try {
     const { name, description, price } = req.body;
-    
-    const newTest = await LabTest.create({
-      name,
-      description,
-      price,
-      status: 'active'
-    });
-
-    res.status(201).json({ message: "Lab test service added!", test: newTest });
+    const newTest = await LabTest.create({ name, description, price });
+    res.status(201).json({ message: "Lab test added to catalog", newTest });
   } catch (error) {
     res.status(500).json({ message: "Error adding lab test", error: error.message });
   }
 };
 
-// 4. Get System Statistics (Requirement 3.1)
+// 4. System Statistics (Dashboard Summary)
 exports.getStats = async (req, res) => {
   try {
-    const totalUsers = await User.count();
-    const activeDoctors = await User.count({ where: { role: 'doctor', status: 'active' } });
-    const activeNurses = await User.count({ where: { role: 'nurse', status: 'active' } });
-    const totalServices = await LabTest.count({ where: { status: 'active' } });
-
+    const totalPatients = await User.count({ where: { role: 'patient' } });
+    const totalDoctors = await User.count({ where: { role: 'doctor' } });
+    const totalNurses = await User.count({ where: { role: 'nurse' } });
+    
     res.status(200).json({
-      totalUsers,
-      activeDoctors,
-      activeNurses,
-      totalServices
+      patients: totalPatients,
+      doctors: totalDoctors,
+      nurses: totalNurses
     });
   } catch (error) {
-    res.status(500).json({ message: "Error fetching stats", error: error.message });
+    res.status(500).json({ message: "Error fetching statistics", error: error.message });
+  }
+};
+
+// 5. Get All Users (For User Management Table)
+exports.getAllUsers = async (req, res) => {
+  try {
+    console.log("Admin Request: Fetching all users...");
+    const users = await User.findAll({
+      attributes: ['id', 'name', 'email', 'role', 'status', 'createdAt'],
+      order: [['createdAt', 'DESC']]
+    });
+    
+    console.log(`Successfully found ${users.length} users.`);
+    res.status(200).json(users);
+  } catch (error) {
+    console.error("Admin GetAllUsers Error:", error);
+    res.status(500).json({ message: "Error fetching users", error: error.message });
   }
 };

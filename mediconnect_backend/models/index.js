@@ -13,7 +13,11 @@ const sequelize = new Sequelize(
   {
     host: process.env.DB_HOST,
     dialect: 'mysql',
-    logging: false
+    logging: false,
+    // OPTIMAL: Global safety net to prevent unwanted table auto-generation
+    define: {
+      freezeTableName: true 
+    }
   }
 );
 
