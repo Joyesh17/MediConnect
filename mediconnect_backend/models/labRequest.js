@@ -6,15 +6,21 @@ module.exports = (sequelize, DataTypes) => {
       primaryKey: true
     },
     status: { 
-      type: DataTypes.ENUM('suggested', 'accepted', 'rejected', 'completed'), 
+      // OPTIMAL: Explicit state machine for Lab Tests
+      type: DataTypes.ENUM(
+        'suggested',           // 1. Doctor requested it, waiting for patient
+        'rejected_by_patient', // 2a. Patient refused the test
+        'paid',                // 2b. Patient paid, hospital received money, waiting for Nurse
+        'completed'            // 3. Nurse uploaded the result
+      ), 
       defaultValue: 'suggested' 
     },
     result: {
-      type: DataTypes.TEXT
-    }, // Nurse uploads text result here
+      type: DataTypes.TEXT // Perfect: Keeps plenty of space for the Nurse's report
+    }, 
     doctorNote: {
-      type: DataTypes.STRING
-    }, // Note from doctor
+      type: DataTypes.TEXT // Upgraded from STRING so doctors aren't cut off at 255 characters
+    }, 
     // Explicit Foreign Keys
     appointmentId: {
       type: DataTypes.INTEGER,

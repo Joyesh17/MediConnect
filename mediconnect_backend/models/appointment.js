@@ -14,10 +14,17 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false
     },
     reason: {
-      type: DataTypes.STRING
+      type: DataTypes.TEXT // Upgraded from STRING to TEXT in case the patient writes a long symptom description
     },
     status: { 
-      type: DataTypes.ENUM('pending', 'confirmed', 'completed', 'cancelled'), 
+      type: DataTypes.ENUM(
+        'pending',                // 1. Patient booked, waiting for doctor
+        'rejected_by_doctor',     // 2a. Doctor said no
+        'cancelled_by_patient',   // 2b. Patient cancelled before doctor responded
+        'pay_now_consultation',   // 3. Doctor accepted, waiting for patient to pay
+        'confirmed',              // 4. Patient paid, waiting for doctor to assign nurse
+        'completed'               // 5. Consultation is fully finished
+      ), 
       defaultValue: 'pending' 
     },
     paymentStatus: {

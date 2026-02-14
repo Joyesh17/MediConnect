@@ -12,8 +12,8 @@ module.exports = (sequelize, DataTypes) => {
     description: {
       type: DataTypes.TEXT
     },
-    price: {
-      type: DataTypes.FLOAT,
+    fee: { 
+      type: DataTypes.INTEGER, // Changed to Integer for safe currency calculation
       allowNull: false
     },
     status: {

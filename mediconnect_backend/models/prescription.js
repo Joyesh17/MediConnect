@@ -5,21 +5,21 @@ module.exports = (sequelize, DataTypes) => {
       autoIncrement: true,
       primaryKey: true
     },
+    diagnosis: {
+      type: DataTypes.TEXT // Upgraded from STRING to hold massive amounts of medical notes
+    },
     medications: {
       type: DataTypes.TEXT,
-      allowNull: false
-    }, // Stores medicine details as a long string or JSON
+      allowNull: true // Changed to true: Doctor might only order lab tests initially
+    }, 
     instructions: {
       type: DataTypes.TEXT
-    },
-    diagnosis: {
-      type: DataTypes.STRING
     },
     // Explicit Foreign Key linking to the appointment
     appointmentId: {
       type: DataTypes.INTEGER,
       allowNull: false,
-      unique: true, // Ensures one prescription per appointment
+      unique: true, // Ensures one prescription per appointment (Doctor edits this later)
       references: {
         model: 'appointments',
         key: 'id'

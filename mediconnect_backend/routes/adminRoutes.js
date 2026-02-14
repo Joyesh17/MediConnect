@@ -7,14 +7,18 @@ const { verifyToken, authorizeRole } = require('../middleware/authMiddleware');
 router.use(verifyToken);
 router.use(authorizeRole('admin'));
 
-// 1. User Management
+// --- 1. USER MANAGEMENT ---
+router.get('/users/pending', adminController.getPendingApprovals); // Place specific routes before dynamic parameters!
 router.get('/users', adminController.getAllUsers);
 router.put('/users/:userId/status', adminController.updateUserStatus);
 
-// 2. Service/Lab Test Management
-router.post('/lab-tests', adminController.addLabTest);
+// --- 2. SERVICE / LAB TEST MANAGEMENT ---
+router.get('/lab-tests', adminController.getLabTests); // View the catalog
+router.post('/lab-tests', adminController.addLabTest); // Add a new test
+router.put('/lab-tests/:testId', adminController.updateLabTest); // Edit a test's fee or status
 
-// 3. Dashboard Statistics
+// --- 3. DASHBOARD STATISTICS & REVENUE ---
 router.get('/stats', adminController.getStats);
+router.get('/earnings', adminController.getHospitalEarnings); // View hospital revenue
 
 module.exports = router;

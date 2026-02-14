@@ -9,13 +9,18 @@ module.exports = (sequelize, DataTypes) => {
       },
       onDelete: 'CASCADE'
     },
+    degree: { 
+      type: DataTypes.STRING, 
+      allowNull: false // Enforcing the degree requirement for the Doctor Card
+    },
     specialization: { 
       type: DataTypes.STRING, 
       allowNull: false 
     },
     consultationFee: { 
-      type: DataTypes.FLOAT, 
-      defaultValue: 50.00 
+      type: DataTypes.INTEGER, 
+      allowNull: false,
+      defaultValue: 500 // Standard baseline fee, can be updated by the doctor later
     },
     bio: { 
       type: DataTypes.TEXT 
