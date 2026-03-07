@@ -8,7 +8,9 @@ const Register = () => {
     const [formData, setFormData] = useState({
         name: '', email: '', password: '', phone: '', 
         gender: 'Male', dob: '', role: 'patient',
-        specialization: '', department: ''
+        specialization: '', department: '',
+        // OPTIMAL: Added the new mandatory doctor fields
+        degree: '', consultationFee: '' 
     });
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -21,12 +23,12 @@ const Register = () => {
     const handleRegister = async (e) => {
         e.preventDefault();
         
-        // 1. Password Validation: Ensure it's a "proper" password (e.g., min 6 chars)
+        // 1. Password Validation
         if (formData.password.length < 6) {
             return setError("Please provide a proper password containing at least 6 characters.");
         }
 
-        // 2. BD Phone Number Validation: Exactly 11 digits, starting with '01'
+        // 2. BD Phone Number Validation
         const bdPhoneRegex = /^01\d{9}$/;
         if (!bdPhoneRegex.test(formData.phone)) {
             return setError("Please provide a valid 11-digit Bangladeshi mobile number (e.g., 017XXXXXXXX).");
@@ -68,16 +70,12 @@ const Register = () => {
                 <input name="password" type="password" placeholder="Password (Min. 6 characters)" onChange={handleChange} required minLength="6" style={{ padding: '10px', borderRadius: '6px', border: '1px solid #d1d5db' }} />
                 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                    <div>
-                        <input name="phone" type="tel" placeholder="01XXXXXXXXX" onChange={handleChange} required maxLength="11" style={{ padding: '10px', borderRadius: '6px', border: '1px solid #d1d5db', width: '100%', boxSizing: 'border-box' }} />
-                    </div>
-                    <div>
-                        <select name="gender" onChange={handleChange} style={{ padding: '10px', borderRadius: '6px', border: '1px solid #d1d5db', width: '100%', boxSizing: 'border-box' }}>
-                            <option value="Male">Male</option>
-                            <option value="Female">Female</option>
-                            <option value="Other">Other</option>
-                        </select>
-                    </div>
+                    <input name="phone" type="tel" placeholder="01XXXXXXXXX" onChange={handleChange} required maxLength="11" style={{ padding: '10px', borderRadius: '6px', border: '1px solid #d1d5db', width: '100%', boxSizing: 'border-box' }} />
+                    <select name="gender" onChange={handleChange} style={{ padding: '10px', borderRadius: '6px', border: '1px solid #d1d5db', width: '100%', boxSizing: 'border-box' }}>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Other">Other</option>
+                    </select>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
@@ -96,8 +94,16 @@ const Register = () => {
 
                 {/* Conditional Fields mapped directly to Database Schema */}
                 {formData.role === 'doctor' && (
-                    <input name="specialization" placeholder="Specialization (e.g. Cardiology)" onChange={handleChange} required style={{ padding: '10px', borderRadius: '6px', border: '1px solid #2563eb', background: '#f8fafc' }} />
+                    <div style={{ display: 'grid', gap: '10px', padding: '15px', background: '#f8fafc', border: '1px solid #2563eb', borderRadius: '8px' }}>
+                        <p style={{ margin: '0 0 5px 0', fontSize: '13px', color: '#1e3a8a', fontWeight: '600' }}>Doctor Profile Details</p>
+                        <input name="specialization" placeholder="Specialization (e.g., Cardiology)" onChange={handleChange} required style={{ padding: '10px', borderRadius: '6px', border: '1px solid #bfdbfe' }} />
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                            <input name="degree" placeholder="Degree (e.g., MBBS, FCPS)" onChange={handleChange} required style={{ padding: '10px', borderRadius: '6px', border: '1px solid #bfdbfe' }} />
+                            <input name="consultationFee" type="number" placeholder="Fee in BDT (e.g., 500)" onChange={handleChange} required min="0" style={{ padding: '10px', borderRadius: '6px', border: '1px solid #bfdbfe' }} />
+                        </div>
+                    </div>
                 )}
+                
                 {formData.role === 'nurse' && (
                     <input name="department" placeholder="Department (e.g. Pediatrics)" onChange={handleChange} required style={{ padding: '10px', borderRadius: '6px', border: '1px solid #db2777', background: '#fdf2f8' }} />
                 )}
@@ -105,7 +111,7 @@ const Register = () => {
                 <button 
                     type="submit" 
                     disabled={loading}
-                    style={{ background: loading ? '#93c5fd' : '#2563eb', color: 'white', padding: '12px', border: 'none', borderRadius: '6px', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '16px', fontWeight: '600', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
+                    style={{ background: loading ? '#93c5fd' : '#2563eb', color: 'white', padding: '12px', border: 'none', borderRadius: '6px', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '16px', fontWeight: '600', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', marginTop: '10px' }}
                 >
                     {loading ? <><Loader2 size={18} className="animate-spin" /> Creating Account...</> : 'Register'}
                 </button>

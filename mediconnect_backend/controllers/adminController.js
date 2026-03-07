@@ -67,7 +67,6 @@ exports.getLabTests = async (req, res) => {
 // 5. Add New Lab Test
 exports.addLabTest = async (req, res) => {
   try {
-    // OPTIMAL: Changed 'price' to 'fee' to match our upgraded Database Model
     const { name, description, fee } = req.body;
     const newTest = await LabTest.create({ name, description, fee });
     res.status(201).json({ message: "Lab test added to catalog", newTest });
@@ -85,7 +84,6 @@ exports.updateLabTest = async (req, res) => {
     const test = await LabTest.findByPk(testId);
     if (!test) return res.status(404).json({ message: "Lab test not found." });
 
-    // Update only the provided fields
     if (name) test.name = name;
     if (description) test.description = description;
     if (fee !== undefined) test.fee = fee;
@@ -108,20 +106,25 @@ exports.getStats = async (req, res) => {
     const totalDoctors = await User.count({ where: { role: 'doctor' } });
     const totalNurses = await User.count({ where: { role: 'nurse' } });
     
+    // OPTIMAL: Fetching earnings here guarantees the frontend dashboard receives it immediately!
+    const totalEarnings = await Payment.sum('amount', {
+      where: { payee: 'hospital', status: 'completed' }
+    });
+    
     res.status(200).json({
       patients: totalPatients,
       doctors: totalDoctors,
-      nurses: totalNurses
+      nurses: totalNurses,
+      earnings: totalEarnings || 0
     });
   } catch (error) {
     res.status(500).json({ message: "Error fetching statistics", error: error.message });
   }
 };
 
-// 8. Hospital Earnings (Total revenue from Lab Tests)
+// 8. Hospital Earnings (Standalone endpoint just in case the frontend needs it separately)
 exports.getHospitalEarnings = async (req, res) => {
   try {
-    // Sum all completed payments where the payee is 'hospital'
     const totalEarnings = await Payment.sum('amount', {
       where: { payee: 'hospital', status: 'completed' }
     });

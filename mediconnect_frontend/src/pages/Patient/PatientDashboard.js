@@ -258,6 +258,11 @@ const PatientDashboard = () => {
                                                 <CreditCard size={14} /> Pay Consultation Fee
                                             </button>
                                         )}
+                                        {appt.status === 'confirmed' && (
+                                            <div style={{ padding: '8px', background: '#dcfce7', color: '#166534', borderRadius: '6px', textAlign: 'center', fontWeight: 'bold', fontSize: '12px' }}>
+                                                Payment Successful - Awaiting Nurse
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             ))
@@ -278,14 +283,36 @@ const PatientDashboard = () => {
                                     <p style={{ margin: '5px 0', fontSize: '12px', color: '#666' }}>Ordered by Dr. {req.Appointment?.doctor?.name}</p>
                                     <strong style={{ color: '#059669', fontSize: '14px', display: 'block', marginBottom: '10px' }}>Fee: {req.LabTest?.fee} BDT</strong>
                                     
-                                    <div style={{ display: 'flex', gap: '10px' }}>
-                                        <button onClick={() => handleLabResponse(req.id, 'pay')} style={{ flex: 1, padding: '8px', background: '#059669', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>
-                                            Pay Now
-                                        </button>
-                                        <button onClick={() => handleLabResponse(req.id, 'reject')} style={{ flex: 1, padding: '8px', background: '#f3f4f6', color: '#dc2626', border: '1px solid #ddd', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>
-                                            Reject Test
-                                        </button>
-                                    </div>
+                                    {/* OPTIMAL UI: Conditionally render buttons based on strict status */}
+                                    {req.status === 'suggested' && (
+                                        <div style={{ display: 'flex', gap: '10px' }}>
+                                            <button onClick={() => handleLabResponse(req.id, 'pay')} style={{ flex: 1, padding: '8px', background: '#059669', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>
+                                                Pay Now
+                                            </button>
+                                            <button onClick={() => handleLabResponse(req.id, 'reject')} style={{ flex: 1, padding: '8px', background: '#f3f4f6', color: '#dc2626', border: '1px solid #ddd', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>
+                                                Reject Test
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {/* OPTIMAL UI: Replace buttons with status banners once paid or rejected */}
+                                    {req.status === 'paid' && (
+                                        <div style={{ padding: '8px', background: '#dcfce7', color: '#166534', borderRadius: '4px', textAlign: 'center', fontWeight: 'bold', fontSize: '12px' }}>
+                                            Payment Complete - Awaiting Nurse
+                                        </div>
+                                    )}
+
+                                    {req.status === 'rejected_by_patient' && (
+                                        <div style={{ padding: '8px', background: '#fee2e2', color: '#991b1b', borderRadius: '4px', textAlign: 'center', fontWeight: 'bold', fontSize: '12px' }}>
+                                            Test Rejected
+                                        </div>
+                                    )}
+
+                                    {req.status === 'completed' && (
+                                        <div style={{ padding: '8px', background: '#e0f2fe', color: '#0369a1', borderRadius: '4px', textAlign: 'center', fontWeight: 'bold', fontSize: '12px' }}>
+                                            Test Completed - Check Medical Records
+                                        </div>
+                                    )}
                                 </div>
                             ))
                         )}

@@ -16,18 +16,18 @@ const AdminDashboard = () => {
     // Fetch all required data in parallel, safely
     const fetchData = async () => {
         try {
-            // OPTIMAL: Added strict catch blocks to prevent a single API failure from crashing the entire dashboard
-            const [usersRes, testsRes, statsRes, earningsRes] = await Promise.all([
+            // OPTIMAL: Removed the redundant earnings API call since we bundled it into stats!
+            const [usersRes, testsRes, statsRes] = await Promise.all([
                 API.get('/admin/users').catch(err => { console.error("Admin Users failed", err); return { data: [] }; }),
                 API.get('/admin/lab-tests').catch(err => { console.error("Admin Lab tests failed", err); return { data: [] }; }),
-                API.get('/admin/stats').catch(err => { console.error("Admin Stats failed", err); return { data: { patients: 0, doctors: 0, nurses: 0 } }; }),
-                API.get('/admin/earnings').catch(err => { console.error("Admin Earnings failed", err); return { data: { earnings: 0 } }; })
+                API.get('/admin/stats').catch(err => { console.error("Admin Stats failed", err); return { data: { patients: 0, doctors: 0, nurses: 0, earnings: 0 } }; })
             ]);
             
             setUsers(usersRes.data);
             setLabTests(testsRes.data);
             setStats(statsRes.data);
-            setEarnings(earningsRes.data.earnings);
+            // Grab the earnings directly from the upgraded stats payload
+            setEarnings(statsRes.data.earnings || 0);
             setLoading(false);
         } catch (error) {
             console.error("Critical error in Admin dashboard:", error);

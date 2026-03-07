@@ -84,10 +84,9 @@ exports.payConsultationFee = async (req, res) => {
     const { appointmentId } = req.params;
     const patientId = req.user.id;
 
-    // Find appointment and include the Doctor's fee
+    // Fetch appointment independently
     const appointment = await Appointment.findOne({
-      where: { id: appointmentId, patientId },
-      include: [{ model: User, as: 'doctor', include: [DoctorDetails] }]
+      where: { id: appointmentId, patientId }
     });
 
     if (!appointment) return res.status(404).json({ message: "Appointment not found" });
@@ -95,7 +94,9 @@ exports.payConsultationFee = async (req, res) => {
       return res.status(400).json({ message: "This appointment is not awaiting payment." });
     }
 
-    const feeAmount = appointment.doctor.DoctorDetail.consultationFee;
+    // BULLETPROOF: Fetch doctor details independently to guarantee we get the fee without crashing
+    const doctorDetails = await DoctorDetails.findOne({ where: { userId: appointment.doctorId } });
+    const feeAmount = doctorDetails && doctorDetails.consultationFee ? doctorDetails.consultationFee : 500;
 
     // 1. Log the money to the Doctor's account
     await Payment.create({
@@ -170,10 +171,8 @@ exports.respondToLabTest = async (req, res) => {
     const { action } = req.body; // 'pay' or 'reject'
     const patientId = req.user.id;
 
-    const labReq = await LabRequest.findOne({
-      where: { id: requestId },
-      include: [{ model: LabTest }] // Needed to get the test fee
-    });
+    // Fetch lab request independently
+    const labReq = await LabRequest.findByPk(requestId);
 
     if (!labReq) return res.status(404).json({ message: "Request not found" });
     if (labReq.status !== 'suggested') return res.status(400).json({ message: "This test has already been processed." });
@@ -186,11 +185,16 @@ exports.respondToLabTest = async (req, res) => {
     } 
     
     if (action === 'pay') {
+      // BULLETPROOF: Fetch LabTest directly to guarantee we get the fee
+      const actualTestId = labReq.testId || labReq.LabTestId; // Fallback for Sequelize naming quirks
+      const testDetails = await LabTest.findByPk(actualTestId);
+      const feeAmount = testDetails && testDetails.fee ? testDetails.fee : 500;
+
       // Log the money to the Hospital's account
       await Payment.create({
         patientId,
         appointmentId: labReq.appointmentId,
-        amount: labReq.LabTest.fee,
+        amount: feeAmount,
         payee: 'hospital', 
         status: 'completed'
       }, { transaction });

@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import API from '../../services/api';
-import { ClipboardCheck, DollarSign, CheckCircle, XCircle, UserPlus, FileText, X } from 'lucide-react';
+import { ClipboardCheck, DollarSign, CheckCircle, XCircle, UserPlus, FileText, X, AlertCircle, Beaker, History } from 'lucide-react';
 
 const DoctorDashboard = () => {
     // Phase Queues
     const [pendingAppts, setPendingAppts] = useState([]);
     const [awaitingNurseAppts, setAwaitingNurseAppts] = useState([]);
     const [scheduleAppts, setScheduleAppts] = useState([]);
+    const [historyAppts, setHistoryAppts] = useState([]); // NEW: Past appointments
     
     // Data & UI States
     const [earnings, setEarnings] = useState(0);
@@ -15,19 +16,20 @@ const DoctorDashboard = () => {
     const [selectedNurses, setSelectedNurses] = useState({});
     const [loading, setLoading] = useState(true);
 
-    // Consultation Modal States
-    const [consultModal, setConsultModal] = useState(null); // Holds the appointment object when open
+    // Modal States
+    const [consultModal, setConsultModal] = useState(null); 
     const [consultForm, setConsultForm] = useState({ diagnosis: '', medications: '', instructions: '', labTests: [] });
+    const [viewRecordModal, setViewRecordModal] = useState(null); // NEW: Read-only modal for history
 
     const fetchData = async () => {
         try {
-            // OPTIMAL: Fetch all doctor queues and earnings safely with .catch() fallbacks
-            const [pendingRes, awaitingRes, scheduleRes, earnRes, labRes] = await Promise.all([
-                API.get('/doctor/pending-appointments').catch(err => { console.error("Pending appts failed", err); return { data: [] }; }),
-                API.get('/doctor/appointments/awaiting-nurse').catch(err => { console.error("Awaiting nurse failed", err); return { data: [] }; }),
-                API.get('/doctor/schedule').catch(err => { console.error("Schedule failed", err); return { data: [] }; }),
-                API.get('/doctor/earnings').catch(err => { console.error("Doctor Earnings failed", err); return { data: { earnings: 0 } }; }),
-                API.get('/doctor/lab-tests').catch(err => { console.error("Doctor Lab Tests failed", err); return { data: [] }; }) 
+            const [pendingRes, awaitingRes, scheduleRes, earnRes, labRes, historyRes] = await Promise.all([
+                API.get('/doctor/pending-appointments').catch(err => ({ data: [] })),
+                API.get('/doctor/appointments/awaiting-nurse').catch(err => ({ data: [] })),
+                API.get('/doctor/schedule').catch(err => ({ data: [] })),
+                API.get('/doctor/earnings').catch(err => ({ data: { earnings: 0 } })),
+                API.get('/doctor/lab-tests').catch(err => ({ data: [] })),
+                API.get('/doctor/history').catch(err => ({ data: [] })) // NEW: Fetch history
             ]);
 
             setPendingAppts(pendingRes.data);
@@ -35,10 +37,9 @@ const DoctorDashboard = () => {
             setScheduleAppts(scheduleRes.data);
             setEarnings(earnRes.data.earnings);
             setLabTestsCatalog(labRes.data);
+            setHistoryAppts(historyRes.data);
 
-            // Fetch available nurses ONLY for appointments waiting for one
             const nursesMap = {};
-            // Added fallback to [] in case awaitingRes.data failed
             await Promise.all((awaitingRes.data || []).map(async (appt) => {
                 try {
                     const nurseRes = await API.get(`/doctor/available-nurses?date=${appt.date}&time=${appt.time}`);
@@ -60,7 +61,7 @@ const DoctorDashboard = () => {
         fetchData();
     }, []);
 
-    // --- PHASE 1: ACCEPT / REJECT ---
+    // --- PHASE 1 & 3 ACTIONS ---
     const handleRespond = async (appointmentId, action) => {
         try {
             await API.put(`/doctor/appointments/${appointmentId}/respond`, { action });
@@ -71,7 +72,6 @@ const DoctorDashboard = () => {
         }
     };
 
-    // --- PHASE 3: ASSIGN NURSE ---
     const handleAssignNurse = async (appointmentId) => {
         const nurseId = selectedNurses[appointmentId];
         if (!nurseId) return alert("Please select a nurse from the dropdown first!");
@@ -84,8 +84,19 @@ const DoctorDashboard = () => {
         }
     };
 
-    // --- PHASE 3 & 5: CONSULTATION SUBMISSIONS ---
+    // --- CONSULTATION MODAL LOGIC ---
+    const openConsultationModal = (appt) => {
+        setConsultModal(appt);
+        setConsultForm({
+            diagnosis: appt.Prescription?.diagnosis || '',
+            medications: appt.Prescription?.medications || '',
+            instructions: appt.Prescription?.instructions || '',
+            labTests: [] // Clear checkboxes each time
+        });
+    };
+
     const handleInitialConsult = async () => {
+        if(!consultForm.diagnosis) return alert("Diagnosis is required.");
         try {
             await API.post('/doctor/consultation/initial', {
                 appointmentId: consultModal.id,
@@ -114,7 +125,6 @@ const DoctorDashboard = () => {
         }
     };
 
-    // Lab Test Checkbox Handler
     const handleLabTestToggle = (testId) => {
         setConsultForm(prev => {
             const isSelected = prev.labTests.includes(testId);
@@ -156,6 +166,11 @@ const DoctorDashboard = () => {
                                 <div key={appt.id} style={{ border: '1px solid #eee', padding: '15px', borderRadius: '8px' }}>
                                     <strong>{appt.patient?.name}</strong>
                                     <p style={{ fontSize: '13px', color: '#666', margin: '5px 0' }}>{new Date(appt.date).toLocaleDateString()} at {appt.time}</p>
+                                    
+                                    <div style={{ background: '#fefce8', padding: '8px', borderRadius: '6px', marginTop: '10px', fontSize: '13px', borderLeft: '3px solid #eab308' }}>
+                                        <strong>Reason:</strong> {appt.reason || "Routine Checkup"}
+                                    </div>
+
                                     <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
                                         <button onClick={() => handleRespond(appt.id, 'accept')} style={{ flex: 1, padding: '8px', background: '#059669', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
                                             <CheckCircle size={16} /> Accept
@@ -214,7 +229,7 @@ const DoctorDashboard = () => {
 
                 {/* 3. Confirmed Schedule */}
                 <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)', borderLeft: '5px solid #8b5cf6' }}>
-                    <h3 style={{ marginTop: 0 }}>3. Today's Schedule (Confirmed)</h3>
+                    <h3 style={{ marginTop: 0 }}>3. Active Schedule (Consultation)</h3>
                     {scheduleAppts.length === 0 ? <p style={{ color: '#666' }}>Your schedule is clear.</p> : (
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '15px' }}>
                             {scheduleAppts.map(appt => (
@@ -223,34 +238,110 @@ const DoctorDashboard = () => {
                                         <strong style={{ fontSize: '18px' }}>{appt.patient?.name}</strong>
                                         <span style={{ fontSize: '12px', background: '#e0e7ff', color: '#3730a3', padding: '4px 8px', borderRadius: '12px' }}>Assigned: {appt.nurse?.name}</span>
                                     </div>
-                                    <p style={{ fontSize: '14px', color: '#666', margin: '0 0 15px 0' }}>{new Date(appt.date).toLocaleDateString()} at {appt.time}</p>
+                                    <p style={{ fontSize: '14px', color: '#666', margin: '0 0 5px 0' }}>{new Date(appt.date).toLocaleDateString()} at {appt.time}</p>
                                     
-                                    <button onClick={() => { setConsultModal(appt); setConsultForm({ diagnosis: '', medications: '', instructions: '', labTests: [] }); }} style={{ width: '100%', padding: '10px', background: '#8b5cf6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: 'bold' }}>
-                                        <FileText size={18} /> Open Medical Form
+                                    <p style={{ fontSize: '13px', color: '#4b5563', margin: '0 0 15px 0', fontStyle: 'italic' }}>
+                                        "{appt.reason || "No reason provided"}"
+                                    </p>
+
+                                    {appt.LabRequests && appt.LabRequests.length > 0 && (
+                                        <div style={{ marginBottom: '15px', fontSize: '12px', color: '#b45309', background: '#fef3c7', padding: '5px', borderRadius: '4px' }}>
+                                            <Beaker size={12} style={{ display: 'inline', marginRight: '4px' }}/> 
+                                            {appt.LabRequests.length} Lab Test(s) Attached
+                                        </div>
+                                    )}
+
+                                    <button onClick={() => openConsultationModal(appt)} style={{ width: '100%', padding: '10px', background: '#8b5cf6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: 'bold' }}>
+                                        <FileText size={18} /> {appt.Prescription ? "Edit Final Prescription" : "Start Initial Checkup"}
                                     </button>
                                 </div>
                             ))}
                         </div>
                     )}
                 </div>
+
+                {/* 4. Consultation History (NEW) */}
+                <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)', borderLeft: '5px solid #64748b' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+                        <History size={24} color="#64748b" />
+                        <h3 style={{ margin: 0 }}>Consultation History</h3>
+                    </div>
+                    {historyAppts.length === 0 ? <p style={{ color: '#666' }}>No past consultations.</p> : (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '15px' }}>
+                            {historyAppts.map(appt => (
+                                <div key={appt.id} style={{ border: '1px solid #e2e8f0', padding: '15px', borderRadius: '8px', background: '#f8fafc' }}>
+                                    <strong style={{ fontSize: '16px' }}>{appt.patient?.name}</strong>
+                                    <p style={{ fontSize: '13px', color: '#666', margin: '5px 0' }}>{new Date(appt.date).toLocaleDateString()}</p>
+                                    <p style={{ fontSize: '13px', color: '#0f172a', margin: '5px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        <strong>Diagnosis:</strong> {appt.Prescription?.diagnosis || 'N/A'}
+                                    </p>
+                                    
+                                    <button onClick={() => setViewRecordModal(appt)} style={{ width: '100%', padding: '8px', marginTop: '10px', background: '#e2e8f0', color: '#334155', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px', fontWeight: 'bold' }}>
+                                        <ClipboardCheck size={16} /> View Final Record
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
             </div>
 
-            {/* --- CONSULTATION MODAL --- */}
+            {/* --- ACTIVE CONSULTATION MODAL --- */}
             {consultModal && (
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-                    <div style={{ background: 'white', padding: '30px', borderRadius: '12px', width: '600px', maxHeight: '90vh', overflowY: 'auto', position: 'relative' }}>
+                    <div style={{ background: 'white', padding: '30px', borderRadius: '12px', width: '700px', maxHeight: '90vh', overflowY: 'auto', position: 'relative' }}>
                         <button onClick={() => setConsultModal(null)} style={{ position: 'absolute', top: '15px', right: '15px', background: 'none', border: 'none', cursor: 'pointer' }}>
                             <X size={24} color="#666" />
                         </button>
                         
                         <h2 style={{ marginTop: 0, color: '#8b5cf6', borderBottom: '2px solid #f3f4f6', paddingBottom: '10px' }}>Consultation: {consultModal.patient?.name}</h2>
                         
-                        <div style={{ display: 'grid', gap: '15px', marginTop: '20px' }}>
+                        <div style={{ display: 'flex', gap: '10px', background: '#fef2f2', padding: '12px', borderRadius: '8px', borderLeft: '4px solid #ef4444', marginBottom: '20px' }}>
+                            <AlertCircle size={20} color="#ef4444" style={{ flexShrink: 0 }} />
                             <div>
-                                <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Diagnosis</label>
+                                <strong style={{ fontSize: '13px', color: '#991b1b', display: 'block' }}>Patient's Stated Symptoms:</strong>
+                                <span style={{ fontSize: '14px', color: '#7f1d1d' }}>{consultModal.reason || "No symptoms stated."}</span>
+                            </div>
+                        </div>
+
+                        {consultModal.LabRequests && consultModal.LabRequests.length > 0 && (
+                            <div style={{ background: '#f0fdf4', padding: '15px', borderRadius: '8px', border: '1px solid #166534', marginBottom: '20px' }}>
+                                <h4 style={{ margin: '0 0 10px 0', color: '#166534', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                    <Beaker size={18} /> Lab Test Results
+                                </h4>
+                                {consultModal.LabRequests.map(req => (
+                                    <div key={req.id} style={{ marginBottom: '8px', fontSize: '14px', paddingBottom: '8px', borderBottom: '1px dashed #bbf7d0' }}>
+                                        <strong>{req.LabTest?.name}:</strong> 
+                                        {req.status === 'completed' 
+                                            ? <span style={{color: '#059669', marginLeft: '10px', display: 'block', marginTop: '4px'}}>{req.result}</span> 
+                                            : <span style={{color: '#d97706', marginLeft: '10px', fontStyle: 'italic'}}>Awaiting patient payment or nurse upload...</span>
+                                        }
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        <div style={{ display: 'grid', gap: '15px' }}>
+                            <div>
+                                <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Diagnosis (Required)</label>
                                 <textarea value={consultForm.diagnosis} onChange={e => setConsultForm({...consultForm, diagnosis: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #ccc', minHeight: '60px' }} placeholder="Enter medical diagnosis..." />
                             </div>
                             
+                            {!consultModal.Prescription && (
+                                <div style={{ background: '#f9fafb', padding: '15px', borderRadius: '8px', border: '1px solid #eee' }}>
+                                    <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '10px' }}>Order Lab Tests (Optional)</label>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                                        {labTestsCatalog.map(test => (
+                                            <label key={test.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px' }}>
+                                                <input type="checkbox" checked={consultForm.labTests.includes(test.id)} onChange={() => handleLabTestToggle(test.id)} />
+                                                {test.name}
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             <div>
                                 <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Medications</label>
                                 <textarea value={consultForm.medications} onChange={e => setConsultForm({...consultForm, medications: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #ccc', minHeight: '60px' }} placeholder="List medicines here..." />
@@ -260,31 +351,72 @@ const DoctorDashboard = () => {
                                 <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Instructions</label>
                                 <textarea value={consultForm.instructions} onChange={e => setConsultForm({...consultForm, instructions: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #ccc', minHeight: '60px' }} placeholder="Rest, diet, follow-up..." />
                             </div>
-
-                            <div style={{ background: '#f9fafb', padding: '15px', borderRadius: '8px', border: '1px solid #eee' }}>
-                                <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '10px' }}>Order Lab Tests</label>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                                    {labTestsCatalog.map(test => (
-                                        <label key={test.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px' }}>
-                                            <input type="checkbox" checked={consultForm.labTests.includes(test.id)} onChange={() => handleLabTestToggle(test.id)} />
-                                            {test.name}
-                                        </label>
-                                    ))}
-                                </div>
-                            </div>
                         </div>
 
                         <div style={{ display: 'flex', gap: '15px', marginTop: '25px' }}>
-                            <button onClick={handleInitialConsult} style={{ flex: 1, padding: '12px', background: '#059669', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
-                                Step 1: Save & Order Tests
-                            </button>
-                            <button onClick={handleFinalizeConsult} style={{ flex: 1, padding: '12px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
-                                Step 2: Finalize & Close
-                            </button>
+                            {!consultModal.Prescription ? (
+                                <button onClick={handleInitialConsult} style={{ flex: 1, padding: '12px', background: '#059669', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+                                    Step 1: Save & Order Tests
+                                </button>
+                            ) : (
+                                <button onClick={handleFinalizeConsult} style={{ flex: 1, padding: '12px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+                                    Step 2: Finalize Prescriptions & Close
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
             )}
+
+            {/* --- VIEW ONLY HISTORY MODAL --- */}
+            {viewRecordModal && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+                    <div style={{ background: 'white', padding: '30px', borderRadius: '12px', width: '600px', maxHeight: '90vh', overflowY: 'auto', position: 'relative' }}>
+                        <button onClick={() => setViewRecordModal(null)} style={{ position: 'absolute', top: '15px', right: '15px', background: 'none', border: 'none', cursor: 'pointer' }}>
+                            <X size={24} color="#666" />
+                        </button>
+                        
+                        <h2 style={{ marginTop: 0, color: '#334155', borderBottom: '2px solid #f3f4f6', paddingBottom: '10px' }}>
+                            Medical Record: {viewRecordModal.patient?.name}
+                        </h2>
+                        
+                        <div style={{ marginBottom: '20px', fontSize: '14px', color: '#64748b' }}>
+                            <strong>Date of Visit:</strong> {new Date(viewRecordModal.date).toLocaleDateString()}<br/>
+                            <strong>Original Reason:</strong> {viewRecordModal.reason}
+                        </div>
+
+                        <div style={{ display: 'grid', gap: '15px' }}>
+                            <div style={{ background: '#f8fafc', padding: '15px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                                <strong style={{ display: 'block', marginBottom: '5px', color: '#0f172a' }}>Diagnosis:</strong>
+                                <p style={{ margin: 0, fontSize: '14px' }}>{viewRecordModal.Prescription?.diagnosis || 'N/A'}</p>
+                            </div>
+                            
+                            <div style={{ background: '#f8fafc', padding: '15px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                                <strong style={{ display: 'block', marginBottom: '5px', color: '#0f172a' }}>Medications:</strong>
+                                <p style={{ margin: 0, fontSize: '14px', whiteSpace: 'pre-wrap' }}>{viewRecordModal.Prescription?.medications || 'None prescribed.'}</p>
+                            </div>
+
+                            <div style={{ background: '#f8fafc', padding: '15px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                                <strong style={{ display: 'block', marginBottom: '5px', color: '#0f172a' }}>Instructions:</strong>
+                                <p style={{ margin: 0, fontSize: '14px', whiteSpace: 'pre-wrap' }}>{viewRecordModal.Prescription?.instructions || 'None provided.'}</p>
+                            </div>
+
+                            {viewRecordModal.LabRequests && viewRecordModal.LabRequests.length > 0 && (
+                                <div style={{ background: '#f0fdf4', padding: '15px', borderRadius: '8px', border: '1px solid #166534' }}>
+                                    <strong style={{ display: 'block', marginBottom: '10px', color: '#166534' }}>Lab Test Results:</strong>
+                                    {viewRecordModal.LabRequests.map(req => (
+                                        <div key={req.id} style={{ marginBottom: '8px', fontSize: '14px', paddingBottom: '8px', borderBottom: '1px dashed #bbf7d0' }}>
+                                            <strong>{req.LabTest?.name}:</strong> 
+                                            <span style={{color: '#059669', marginLeft: '10px', display: 'block', marginTop: '4px'}}>{req.result || 'Pending'}</span> 
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
         </div>
     );
 };

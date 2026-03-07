@@ -9,7 +9,8 @@ exports.register = async (req, res) => {
     const t = await sequelize.transaction();
 
     try {
-        const { name, email, password, role, specialization, department, phone, gender, dob } = req.body;
+        // OPTIMAL: Extracted degree and consultationFee from the incoming request
+        const { name, email, password, role, specialization, department, phone, gender, dob, degree, consultationFee } = req.body;
 
         // Security check for Admin
         if (role === 'admin') {
@@ -37,7 +38,10 @@ exports.register = async (req, res) => {
         if (role === 'doctor') {
             await DoctorDetails.create({ 
                 userId: newUser.id, 
-                specialization: specialization || 'General' 
+                specialization: specialization || 'General',
+                // OPTIMAL: Map the new fields with safe defaults to prevent NotNull crashes
+                degree: degree || 'MBBS',
+                consultationFee: consultationFee ? parseInt(consultationFee) : 500 
             }, { transaction: t });
         } else if (role === 'nurse') {
             await NurseDetails.create({ 
