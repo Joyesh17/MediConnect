@@ -2,7 +2,10 @@ import axios from 'axios';
 
 // Centralizes backend URL
 const API = axios.create({
-    baseURL: 'http://localhost:5000/api',
+    baseURL: 'https://noninterpretational-wavingly-hazel.ngrok-free.dev/api',
+    headers: {
+        'ngrok-skip-browser-warning': 'true',
+    },
 });
 
 // REQUEST INTERCEPTOR: Attaches token to outgoing requests

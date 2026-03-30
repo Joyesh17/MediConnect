@@ -1,5 +1,7 @@
 const express = require('express');
 const cors = require('cors');
+const fs = require('fs');
+const path = require('path');
 const db = require('./models');
 require('dotenv').config();
 
@@ -28,10 +30,24 @@ app.use('/api/doctor', doctorRoutes);
 app.use('/api/nurse', nurseRoutes);
 app.use('/api/users', userRoutes);
 
-// Test Route
-app.get('/', (req, res) => {
+// Backend health route
+app.get('/api/health', (req, res) => {
   res.send('MediConnect Backend is Running!');
 });
+
+// --- FRONTEND BUILD HOSTING ---
+const frontendBuildPath = path.join(__dirname, './build');
+
+if (fs.existsSync(frontendBuildPath)) {
+  app.use(express.static(frontendBuildPath));
+
+  // Serve React app for every non-API route (SPA fallback)
+  app.get(/^(?!\/api).*/, (req, res) => {
+    res.sendFile(path.join(frontendBuildPath, 'index.html'));
+  });
+} else {
+  console.warn('Frontend build folder not found. Run "npm run build" in mediconnect_frontend.');
+}
 
 // --- DATABASE SYNC & SERVER START ---
 console.log("Attempting DB Connection...");
